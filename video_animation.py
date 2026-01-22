@@ -1,6 +1,5 @@
 """
 VIDEO_ANIMATION.PY - Creates animation video
-Compatible with fixed Drone.py
 """
 
 import numpy as np
@@ -12,8 +11,9 @@ from matplotlib.patches import Polygon
 from CreateModel2 import CreateModel2
 from Drone import Drone
 import os
+import warnings
 
-def run_simulation_for_video(model):
+def run_simulation_for_video(model, max_frames=1000):
     """Run simulation and collect all data for video"""
     print("Running simulation for video...")
     
@@ -26,7 +26,6 @@ def run_simulation_for_video(model):
         drones.append(drone)
     
     dt = 0.02
-    max_frames = 4000
     reached = False
     
     # Store all positions for animation
@@ -37,8 +36,7 @@ def run_simulation_for_video(model):
         reached_sum = 0
         
         for i in range(model['n']):
-            # FIXED: Behavior returns 3 values, ignore the third
-            vel, reach, _ = drones[i].Behavior(drones, model)
+            vel, reach = drones[i].Behavior(drones, model)
             drones[i].UpdatePosition(vel, dt)
             reached_sum += int(reach)
             
@@ -64,26 +62,20 @@ def create_video_animation(model, positions, total_frames):
     fig, ax = plt.subplots(figsize=(14, 8))
     
     # Colors
-    newcolors = np.array([
-        [0, 0.4470, 0.7410],
-        [0.8500, 0.3250, 0.0980],
-        [0.9290, 0.6940, 0.1250],
-        [0.4940, 0.1840, 0.5560],
-        [0.4660, 0.6740, 0.1880],
-        [0.3010, 0.7450, 0.9330],
-        [0.6350, 0.0780, 0.1840]
-    ])
+    colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan', 'magenta']
     
     # Initialize plot elements
     path_lines = []
     drone_dots = []
     
     for i in range(model['n']):
-        line, = ax.plot([], [], linewidth=2, color=newcolors[i % len(newcolors)], alpha=0.7)
+        line, = ax.plot([], [], linewidth=2, 
+                       color=colors[i % len(colors)], 
+                       alpha=0.7)
         path_lines.append(line)
         
-        dot = ax.scatter([], [], marker='o', edgecolor=[0, 0.5, 0.5],
-                        facecolor=[0, 0.7, 0.7], linewidth=1.5, s=80)
+        dot = ax.scatter([], [], marker='o', edgecolor='darkblue',
+                        facecolor='lightblue', linewidth=1.5, s=80)
         drone_dots.append(dot)
     
     # Formation line
@@ -130,19 +122,17 @@ def create_video_animation(model, positions, total_frames):
     
     # Update function
     def update(frame_idx):
-        for line in path_lines:
-            line.set_data([], [])
-        
         # Plot paths up to current frame
         for i in range(model['n']):
             if frame_idx < len(positions[i]):
                 x_data = [p[0] for p in positions[i][:frame_idx+1]]
                 y_data = [p[1] for p in positions[i][:frame_idx+1]]
-                path_lines[i].set_data(x_data, y_data)
                 
-                if len(positions[i]) > frame_idx:
-                    current_pos = positions[i][frame_idx]
-                    drone_dots[i].set_offsets([current_pos])
+                if len(x_data) > 0:
+                    path_lines[i].set_data(x_data, y_data)
+                
+                current_pos = positions[i][frame_idx]
+                drone_dots[i].set_offsets([current_pos])
         
         # Plot formation
         if frame_idx < len(positions[0]):
@@ -156,41 +146,59 @@ def create_video_animation(model, positions, total_frames):
                 formation_line.set_data(gr_array[:, 0], gr_array[:, 1])
         
         # Update frame text
-        frame_text.set_text(f'Frame: {frame_idx}/{total_frames-1}\nTime: {frame_idx*0.02:.1f}s')
+        frame_text.set_text(f'Frame: {frame_idx+1}/{total_frames}\nTime: {(frame_idx+1)*0.02:.1f}s')
         
         return path_lines + drone_dots + [formation_line, frame_text]
     
     # Create animation
-    anim = animation.FuncAnimation(fig, update, frames=min(total_frames, 2000),
+    anim = animation.FuncAnimation(fig, update, frames=min(total_frames, 3000),
                                   init_func=init, blit=True, interval=20)
     
-    # Save video
-    print("Saving video...")
+    # Save video - THỬ NHIỀU CÁCH
+    print("Saving animation...")
     
+    # 1. Thử tạo GIF trước (dễ nhất)
     try:
-        # Try FFmpeg
+        writer = animation.PillowWriter(fps=20)
+        gif_path = 'drone_formation_animation.gif'
+        anim.save(gif_path, writer=writer, dpi=100)
+        print(f"✓ GIF saved as '{gif_path}'")
+        return gif_path
+    except Exception as e:
+        print(f"✗ Could not save GIF: {e}")
+    
+    # 2. Thử tạo MP4 nếu có ffmpeg
+    try:
         writer = animation.FFMpegWriter(fps=30, bitrate=5000)
-        anim.save('drone_formation_video.mp4', writer=writer, dpi=100)
-        print("✓ Video saved as 'drone_formation_video.mp4'")
-    except:
-        try:
-            # Fallback to GIF
-            writer = animation.PillowWriter(fps=20)
-            anim.save('drone_formation_video.gif', writer=writer, dpi=100)
-            print("✓ GIF saved as 'drone_formation_video.gif'")
-        except Exception as e:
-            print(f"✗ Could not save video: {e}")
-            print("Saving individual frames...")
-            
-            os.makedirs('animation_frames', exist_ok=True)
-            for i in range(0, min(total_frames, 100), 10):
-                update(i)
-                plt.savefig(f'animation_frames/frame_{i:04d}.png', dpi=100)
-            
-            print("✓ Frames saved in 'animation_frames/' folder")
+        mp4_path = 'drone_formation_video.mp4'
+        anim.save(mp4_path, writer=writer, dpi=100)
+        print(f"✓ MP4 saved as '{mp4_path}'")
+        return mp4_path
+    except Exception as e:
+        print(f"✗ Could not save MP4: {e}")
+    
+    # 3. Lưu từng frame riêng lẻ
+    print("Saving individual frames...")
+    
+    frames_dir = 'animation_frames'
+    os.makedirs(frames_dir, exist_ok=True)
+    
+    # Chỉ lưu 50 frame để tránh quá nhiều file
+    save_every = max(1, total_frames // 50)
+    for i in range(0, total_frames, save_every):
+        update(i)
+        frame_file = os.path.join(frames_dir, f'frame_{i:04d}.png')
+        plt.savefig(frame_file, dpi=100, bbox_inches='tight')
+    
+    print(f"✓ Frames saved in '{frames_dir}/' folder")
+    
+    # Lưu ảnh tổng hợp
+    update(total_frames-1)  # Frame cuối cùng
+    plt.savefig('formation_final_frame.png', dpi=300, bbox_inches='tight')
+    print("✓ Final frame saved as 'formation_final_frame.png'")
     
     plt.close(fig)
-    return anim
+    return frames_dir
 
 def main():
     """Main function to create video"""
@@ -209,20 +217,27 @@ def main():
     
     print(f"\nModel Information:")
     print(f"  Number of UAVs: {model['n']}")
+    print(f"  Desired distance: {model['d']} m")
+    print(f"  Desired angle: {model['alpha']:.2f} rad")
     print(f"  Start: {model['start']}")
     print(f"  Goal: {model['goal']}")
     
     # Run simulation
-    positions, total_frames = run_simulation_for_video(model)
+    positions, total_frames = run_simulation_for_video(model, max_frames=3000)
     
-    # Create video
-    create_video_animation(model, positions, total_frames)
+    # Create animation
+    result_path = create_video_animation(model, positions, total_frames)
     
     print("\n" + "="*60)
-    print("VIDEO CREATION COMPLETE")
+    print("ANIMATION CREATION COMPLETE")
     print("="*60)
     print(f"\nTotal frames simulated: {total_frames}")
     print(f"Total simulation time: {total_frames*0.02:.1f}s")
+    
+    if result_path:
+        print(f"Animation saved at: {result_path}")
+    
+    return result_path
 
 if __name__ == "__main__":
     main()
