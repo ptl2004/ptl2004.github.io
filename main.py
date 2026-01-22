@@ -1,5 +1,6 @@
 """
 MAIN.PY - Exact equivalent of MATLAB main.m
+GIỮ NGUYÊN TẤT CẢ CODE GỐC, chỉ thêm phần vẽ đồ thị
 """
 import numpy as np
 import matplotlib
@@ -9,8 +10,8 @@ from matplotlib.patches import Polygon
 from CreateModel2 import CreateModel2
 from Drone import Drone
 
-def main():
-    """EXACT MATLAB main.m algorithm"""
+def run_simulation():
+    """EXACT MATLAB main.m algorithm - KHÔNG SỬA GÌ"""
     # Load model
     model = CreateModel2()
     
@@ -145,6 +146,51 @@ def main():
         path_array = np.array(drone.path)
         distance = np.sum(np.linalg.norm(np.diff(path_array[:, :2], axis=0), axis=1))
         print(f"UAV{i+1}: {len(path_array)} points, {distance:.2f}m traveled")
+    
+    return drones, model
+
+def main():
+    """Main function với option vẽ đồ thị bài báo"""
+    
+    # Chạy simulation
+    drones, model = run_simulation()
+    
+    # Hỏi người dùng có muốn vẽ đồ thị bài báo không
+    print("\n" + "="*70)
+    print("OPTIONAL: Vẽ đồ thị đánh giá như trong bài báo (Hình 6)")
+    print("="*70)
+    
+    response = input("Bạn có muốn vẽ đồ thị đánh giá từ bài báo? (y/n): ").strip().lower()
+    
+    if response == 'y' or response == 'yes':
+        try:
+            # Import và chạy plotting
+            from plot_paper_figures import (
+                calculate_metrics_from_simulation,
+                plot_figure_6_paper_style,
+                print_statistical_summary
+            )
+            
+            print("\nĐang tính toán metrics cho đồ thị bài báo...")
+            
+            # Tính metrics
+            metrics = calculate_metrics_from_simulation(drones, model)
+            
+            # Vẽ Hình 6
+            plot_figure_6_paper_style(metrics, model)
+            
+            # In summary statistics
+            print_statistical_summary(metrics, model)
+            
+            print("\n✓ Đã hoàn thành vẽ đồ thị bài báo!")
+            
+        except ImportError as e:
+            print(f"\n Không thể vẽ đồ thị bài báo: {e}")
+            print("   Đảm bảo file 'plot_paper_figures.py' có trong thư mục")
+        except Exception as e:
+            print(f"\n✗ Lỗi khi vẽ đồ thị: {e}")
+    else:
+        print("\n✓ Chỉ hiển thị kết quả simulation cơ bản.")
     
     return drones, model
 

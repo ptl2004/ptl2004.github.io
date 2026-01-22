@@ -1,0 +1,20 @@
+================================================================================
+SIMULATION RESULTS SUMMARY
+================================================================================
+
+Simulation Parameters:
+  Number of UAVs: 5
+  Desired distance d: 0.800m
+  Desired angle alpha: 0.750π rad
+  Simulation duration: 30.6s (1529 frames)
+
+Performance Metrics:
+  Average formation error: 4.06148m
+  Minimum inter-UAV distance: 0.21936m
+  Average consecutive UAV distance: 3.23563m
+  Average order metric Phi: 0.985
+
+Safety Assessment:
+  Collision avoidance: UNSAFE
+  Formation stability: UNSTABLE
+  UAV alignment: GOOD
